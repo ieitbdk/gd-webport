@@ -109,11 +109,55 @@ var GD_ASSET_CACHE = 'gdwasm-assets';
 try {
 if (window.caches) caches.delete(GD_ASSET_CACHE).catch(function () {});
 } catch (e) {}
+
+// --- LOGICA DE DESCARGA Y UNION DE PARTES .DATA ---
+const dataParts = [
+  'gd_web_part0.data',
+  'gd_web_part1.data',
+  'gd_web_part2.data',
+  'gd_web_part3.data',
+  'gd_web_part4.data',
+  'gd_web_part5.data'
+];
+
+async function loadCombinedData() {
+  say('[data] Descargando y uniendo las 6 partes de gd_web...');
+  var totalLoaded = 0;
+  var estimatedTotal = GD_SIZE_HINT.data;
+
+  const buffers = await Promise.all(
+    dataParts.map(url => 
+      fetch(url, { cache: 'no-store' }).then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' al cargar ' + url);
+        return res.arrayBuffer().then(buf => {
+          totalLoaded += buf.byteLength;
+          setAssetBar('data', totalLoaded, estimatedTotal);
+          return buf;
+        });
+      })
+    )
+  );
+
+  const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+
+  for (const b of buffers) {
+    combined.set(new Uint8Array(b), offset);
+    offset += b.byteLength;
+  }
+
+  say('[data] Unión completada (' + gdFmtSize(totalLength) + ')');
+  gdAssetDone.data = true;
+  setAssetBar('data', totalLength, totalLength);
+  return combined;
+}
+
 (function () {
 var baseFetch = window.fetch.bind(window);
 window.fetch = function (input, init) {
 var u = typeof input === 'string' ? input : (input && input.url) || '';
-if (/(^|\/)gd_web\.(data|wasm|js)([?#]|$)/.test(u)) {
+if (/(^|\/)gd_web\.(data|wasm|js)([?#]|$)/.test(u) || /gd_web_part/.test(u)) {
 init = Object.assign({}, init || {}, { cache: 'no-store' });
 }
 return baseFetch(input, init);
@@ -410,6 +454,9 @@ canvas: document.getElementById('canvas'),
 gdInputQueue: [],
 gdCursorPos: [0, 0],
 locateFile: function (p) { return p; },
+getPreloadedPackage: function (remotePackageName, remotePackageSize) {
+  return loadCombinedData();
+},
 get dataFileDownloads() { return this.__dfd; },
 set dataFileDownloads(v) {
 if (this.__dfd === v) return;
