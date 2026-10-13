@@ -154,11 +154,6 @@ async function loadCombinedData() {
   return combined.buffer;
 }
 
-var Module = window.Module || {};
-Module.getPreloadedPackage = function(remotePackageName, remotePackageSize) {
-  return loadCombinedData();
-};
-
 function gdClearCache() {
 if (!confirm('Clear saved progress and login on this site?\n' +
 'The game reloads afterwards.'))
@@ -446,11 +441,13 @@ one();
 } catch (e) { finish(); }
 }
 
-// Sobrescribimos o unificamos la definición de Module
-Object.assign(Module, {
+var Module = {
 canvas: document.getElementById('canvas'),
 gdInputQueue: [],
 gdCursorPos: [0, 0],
+getPreloadedPackage: function(remotePackageName, remotePackageSize) {
+  return loadCombinedData();
+},
 locateFile: function (p) { return p; },
 get dataFileDownloads() { return this.__dfd; },
 set dataFileDownloads(v) {
@@ -587,7 +584,7 @@ say('gd_boot exception: ' + e);
 });
 }, 100);
 }
-});
+};
 
 var started = false;
 function gdStart() {
