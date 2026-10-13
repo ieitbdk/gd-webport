@@ -151,11 +151,11 @@ async function loadCombinedData() {
   gdAssetDone.data = true;
   setAssetBar('data', totalLength, totalLength);
 
-  // Forzamos a Emscripten a avanzar del 78%
   forceAssetsDone();
   setProgress(80);
 
-  return combined;
+  // Retornamos el ArrayBuffer interno (.buffer) que Emscripten necesita
+  return combined.buffer;
 }
 
 (function () {
