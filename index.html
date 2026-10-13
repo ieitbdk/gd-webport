@@ -130,7 +130,7 @@ function fetchAndCombineParts() {
     var totalLoaded = 0;
     var estimatedTotal = GD_SIZE_HINT.data;
 
-    const buffers = await Promise.all(
+    const downloadedParts = await Promise.all(
       dataParts.map((url, index) => 
         fetch(url, { cache: 'no-store' }).then(res => {
           if (!res.ok) throw new Error('HTTP ' + res.status + ' al cargar ' + url);
@@ -143,13 +143,13 @@ function fetchAndCombineParts() {
       )
     );
 
-    buffers.sort((a, b) => a.index - b.index);
+    downloadedParts.sort((a, b) => a.index - b.index);
 
-    const totalLength = buffers.reduce((acc, item) => acc + item.buffer.byteLength, 0);
+    const totalLength = downloadedParts.reduce((acc, item) => acc + item.buffer.byteLength, 0);
     const combined = new Uint8Array(totalLength);
     let offset = 0;
 
-    for (const item of buffers) {
+    for (const item of downloadedParts) {
       combined.set(new Uint8Array(item.buffer), offset);
       offset += item.buffer.byteLength;
     }
