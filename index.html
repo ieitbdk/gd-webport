@@ -150,6 +150,11 @@ async function loadCombinedData() {
   say('[data] Unión completada (' + gdFmtSize(totalLength) + ')');
   gdAssetDone.data = true;
   setAssetBar('data', totalLength, totalLength);
+
+  // Forzamos a Emscripten a avanzar del 78%
+  forceAssetsDone();
+  setProgress(80);
+
   return combined;
 }
 
