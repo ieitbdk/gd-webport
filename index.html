@@ -110,7 +110,7 @@ try {
 if (window.caches) caches.delete(GD_ASSET_CACHE).catch(function () {});
 } catch (e) {}
 
-// --- LOGICA DE DESCARGA Y UNION DE PARTES .DATA ---
+// --- CARGA Y UNIÓN DE PARTES DE DATOS ---
 const dataParts = [
   'gd_web_part0.data',
   'gd_web_part1.data',
@@ -120,60 +120,45 @@ const dataParts = [
   'gd_web_part5.data'
 ];
 
-var combinedDataPromise = null;
-function fetchAndCombineParts() {
-  if (combinedDataPromise) return combinedDataPromise;
-  combinedDataPromise = (async function() {
-    say('[data] Descargando y uniendo las 6 partes de gd_web...');
-    var totalLoaded = 0;
-    var estimatedTotal = GD_SIZE_HINT.data;
+async function loadCombinedData() {
+  say('[data] Descargando y uniendo las 6 partes de gd_web...');
+  var totalLoaded = 0;
+  var estimatedTotal = GD_SIZE_HINT.data;
 
-    const buffers = await Promise.all(
-      dataParts.map(url => 
-        fetch(url, { cache: 'no-store' }).then(res => {
-          if (!res.ok) throw new Error('HTTP ' + res.status + ' al cargar ' + url);
-          return res.arrayBuffer().then(buf => {
-            totalLoaded += buf.byteLength;
-            setAssetBar('data', totalLoaded, estimatedTotal);
-            return buf;
-          });
-        })
-      )
-    );
+  const buffers = await Promise.all(
+    dataParts.map(url => 
+      fetch(url, { cache: 'no-store' }).then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' al cargar ' + url);
+        return res.arrayBuffer().then(buf => {
+          totalLoaded += buf.byteLength;
+          setAssetBar('data', totalLoaded, estimatedTotal);
+          return buf;
+        });
+      })
+    )
+  );
 
-    const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
-    const combined = new Uint8Array(totalLength);
-    let offset = 0;
+  const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
 
-    for (const b of buffers) {
-      combined.set(new Uint8Array(b), offset);
-      offset += b.byteLength;
-    }
+  for (const b of buffers) {
+    combined.set(new Uint8Array(b), offset);
+    offset += b.byteLength;
+  }
 
-    say('[data] Unión completada (' + gdFmtSize(totalLength) + ')');
-    gdAssetDone.data = true;
-    setAssetBar('data', totalLength, totalLength);
+  say('[data] Unión completada (' + gdFmtSize(totalLength) + ')');
+  gdAssetDone.data = true;
+  setAssetBar('data', totalLength, totalLength);
 
-    return combined.buffer;
-  })();
-  return combinedDataPromise;
+  return combined.buffer;
 }
 
-(function () {
-var baseFetch = window.fetch.bind(window);
-window.fetch = function (input, init) {
-var u = typeof input === 'string' ? input : (input && input.url) || '';
-if (/(^|\/)gd_web\.(data|wasm|js)([?#]|$)/.test(u) || /gd_web_part/.test(u)) {
-init = Object.assign({}, init || {}, { cache: 'no-store' });
-}
-if (/(^|\/)gd_web\.data([?#]|$)/.test(u)) {
-  return fetchAndCombineParts().then(function(buf) {
-    return new Response(buf, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } });
-  });
-}
-return baseFetch(input, init);
+var Module = window.Module || {};
+Module.getPreloadedPackage = function(remotePackageName, remotePackageSize) {
+  return loadCombinedData();
 };
-})();
+
 function gdClearCache() {
 if (!confirm('Clear saved progress and login on this site?\n' +
 'The game reloads afterwards.'))
@@ -207,7 +192,7 @@ which === 'wasm' ? 'gdWasmSize' : 'gdDataSize')) || 0;
 function setAssetBar(which, loaded, total) {
 var fill = which === 'wasm' ? wasmFill : dataFill;
 var pctEl = which === 'wasm' ? wasmPct : dataPct;
-var label = which === 'wasm' ? label : dataLabel;
+var label = which === 'wasm' ? wasmLabel : dataLabel;
 if (!fill) return;
 var name = which === 'wasm' ? 'WASM' : 'DATA';
 var learned = gdLearnedSize(which);
@@ -460,7 +445,9 @@ one();
 };
 } catch (e) { finish(); }
 }
-var Module = {
+
+// Sobrescribimos o unificamos la definición de Module
+Object.assign(Module, {
 canvas: document.getElementById('canvas'),
 gdInputQueue: [],
 gdCursorPos: [0, 0],
@@ -600,7 +587,8 @@ say('gd_boot exception: ' + e);
 });
 }, 100);
 }
-};
+});
+
 var started = false;
 function gdStart() {
 if (started) return;
